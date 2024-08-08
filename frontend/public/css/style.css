@@ -18,7 +18,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('/pics/bg/bg_login_reg.webp');
+    background-image: url('../images/webshop_bg.jpg');
     background-size: cover;
     background-position: center;
     filter: blur(10px);
