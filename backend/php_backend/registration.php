@@ -3,124 +3,95 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Report all MySQL errors
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 // Start session to store form data
 session_start();
 
 // Database connection settings
-$db_name = 'localhost';
-$db_username = 'root';
-$db_password = '';
-$db_name = 'db_name';
+$servername = "localhost";
+$dbusername = "root";
+$dbpassword = "";
+$dbname = "users_db";
 
 // Create connection
-$conn = new mysqli($dbname, $db_username, $db_password, $db_name);
+$conn = new mysqli($servername, $dbusername, $dbpassword);
 
 // Check connection
 if ($conn->connect_error) {
-    die(json_encode([
-        'status' => 'error',
-        'message' => 'connection failed' . $conn->connect_error
-    ]));
+    die(json_encode(['status' => 'error', 'message' => "Connection failed: " . $conn->connect_error]));
 }
 
 // Create database if it does not exist
-$sql = 'CREATE DATABASE $dbname IF NOT EXISTS';
-
-if(!$conn($sql)){
-    die(json_encode([
-        'status' => 'error',
-        'message' => 'connection failed'
-    ]));
+$sql = "CREATE DATABASE IF NOT EXISTS $dbname";
+if ($conn->query($sql) !== TRUE) {
+    die(json_encode(['status' => 'error', 'message' => "Error creating database: " . $conn->error]));
 }
 
 // Select the database
-$conn->select_db($db_name);
+$conn->select_db($dbname);
 
 // SQL to create table if it doesn't exist
-$table_sql = 
-"
-    CREATE TABLE IF NOT EXISTS users(
-        email VARCHAR(50) PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password VARCHAR(50) NOT NULL UNIQUE,
-        reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-";
+$table_sql = "CREATE TABLE IF NOT EXISTS users (
+    id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(50) NOT NULL UNIQUE,
+    username VARCHAR(30) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)";
 
-// Check if connection to the dataabse table was succesfull
-if($conn -> query($table_sql)){
-    die(json_encode([
-        'status' => 'error',
-        'message' => 'connection failed'
-    ]));
+if ($conn->query($table_sql) !== TRUE) {
+    die(json_encode(['status' => 'error', 'message' => "Error creating table: " . $conn->error]));
 }
 
-// Check if data is submitted, get form data
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Check if data is submitted
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Get form data
     $email = $_POST['email'];
     $username = $_POST['username'];
     $password1 = $_POST['password1'];
     $password2 = $_POST['password2'];
 
-    if(!empty($email) && !empty($username) && !empty($password1) && !empty($password2)){
-        if($password1 === $password2){
-            // Check if email or username already exists!
-            $stmt = $conn->prepare("SELECT id FROM WHERE email = ? OR username = ?");
+    // Validate input
+    if (!empty($email) && !empty($username) && !empty($password1) && !empty($password2)) {
+        // Check if passwords match
+        if ($password1 === $password2) {
+            // Check if email or username already exists
+            $stmt = $conn->prepare('SELECT id FROM users WHERE email = ? OR username = ?');
             $stmt->bind_param('ss', $email, $username);
             $stmt->execute();
             $stmt->store_result();
-
-            // If a matching record is forund return an error
-            if($stmt->num_rows > 0){
-                echo json_encode([
-                    'status' => 'error',
-                    'message' => 'connection failed'
-                ]);
-            }
-            else
-            {
+            
+            if ($stmt->num_rows > 0) {
+                echo json_encode(['status' => 'error', 'message' => 'Email or username already exists!']);
+            } else {
+                // Hash the password
                 $hashed_password = password_hash($password1, PASSWORD_DEFAULT);
-                $stmt->$conn->prepare('sss', "INSERT INTO users VALUES(?, ?, ?)");
+
+                // Prepare SQL statement
+                $stmt = $conn->prepare('INSERT INTO users (email, username, password) VALUES (?, ?, ?)');
                 $stmt->bind_param('sss', $email, $username, $hashed_password);
 
-                // Execute the sql statement
-                
-
+                // Execute the statement
+                if ($stmt->execute()) {
+                    echo json_encode(['status' => 'success', 'message' => 'Registration successful!']);
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Error: ' . $stmt->error]);
+                }
             }
 
+            // Close the statement
+            $stmt->close();
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Passwords do not match!']);
         }
-        else{
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Passwords do not match!'
-            ]); 
-        }
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Please fill in all fields!']);
     }
-    else
-    {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Please fill in all the fields!'
-        ]);
-    }
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method. Please use the registration form.']);
 }
-else {
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'Invalid request method!'
-    ]);
-}
-
-
-
-// Execute the statement
-
-// Close the statement
 
 // Close the connection
+$conn->close();
 ?>
-
-// picinyuszi ♥♥♥
